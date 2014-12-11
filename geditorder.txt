@@ -1,0 +1,1 @@
+gedit main.cpp bomberman.cpp bomberman.hpp map.cpp map.hpp player.cpp player.hpp bomb.cpp bomb.hpp mapEditor.cpp mapEditor.hpp &
