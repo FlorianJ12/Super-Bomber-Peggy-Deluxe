@@ -14,8 +14,12 @@ class MapEditor
 {
 
 public : 
+
+// Constructeur
 	MapEditor(int size_x, int size_y);
+//Destructeur
 	~MapEditor();
+// Méthodes 
 	bool mapGenerator();
 	void display() const;
 	void write(char type, int x, int y);

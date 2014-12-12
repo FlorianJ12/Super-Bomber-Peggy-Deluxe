@@ -37,35 +37,31 @@ Bomberman::Bomberman ()
 	spriteset_strong_ = new sf::Image;
 	background_menu_ = new sf::Image ;
 	spriteset_menu_ = new sf::Image;
-	current_background_ = new sf::Sprite;
-	music_menu_ = new sf::Music;	
-	music_game_ = new sf::Music;	
+	current_background_ = new sf::Sprite;	
 	background_->LoadFromFile("data/background2.png");
 	spriteset_ ->LoadFromFile("data/spritesheetb.png");
 	spriteset_fast_ ->LoadFromFile("data/spritesheetf.png");
 	spriteset_strong_ ->LoadFromFile("data/spritesheets.png");
 	background_menu_->LoadFromFile("data/background_settings.png");
 	spriteset_menu_ ->LoadFromFile("data/spritesetting.png");
-	victory_ = new sf::Sprite;
+
 	
 	map_ = NULL;
-	groBold_ = new sf::Font;
-	groBold_ -> LoadFromFile("data/Font/GROBOLD.ttf");
+	m_ = NULL;
+	groBold_ .LoadFromFile("data/Font/GROBOLD.ttf");
 	
-	music_menu_->OpenFromFile("data/SonsProjet/superstition.ogg");
-	music_menu_->SetLoop(true);
-	music_menu_->SetPitch(1.1);
-	music_menu_->SetVolume(75);
-	music_game_->OpenFromFile("data/SonsProjet/SweetHomeAlabama.ogg");
-	music_game_->SetLoop(true);
-	music_game_->SetPitch(1.15);
-	music_game_->SetVolume(25);
+	// Initialisation des musiques 
+	music_menu_.OpenFromFile("data/SonsProjet/superstition.ogg");
+	music_menu_.SetLoop(true);
+	music_menu_.SetPitch(1.1);
+	music_menu_.SetVolume(75);
+	music_game_.OpenFromFile("data/SonsProjet/SweetHomeAlabama.ogg");
+	music_game_.SetLoop(true);
+	music_game_.SetPitch(1.15);
+	music_game_.SetVolume(25);
 
-
 	
-	bombtime_.Reset();
 	
-	listBomb_ = new list<Bomb*>;
 	// Création fenêtre
 	win_ = new sf::RenderWindow(sf::VideoMode(size_window_[(int)size_win_].x, size_window_[(int)size_win_].y),
 					"Super BomberPeggy Deluxe", sf::Style::Titlebar | sf::Style::Close);
@@ -73,11 +69,12 @@ Bomberman::Bomberman ()
 
 	// Initialisation 
 
-	timer_ = new Timer();
+	listBomb_ = new list<Bomb*>;
 	music_ = true;
 	sound_ = true;
 	size_win_ = 1;
 	
+	// Initialisation des touches de bases
 	vector <sf::Key::Code> setKey1;
 	setKey1.push_back(sf::Key::Left);
 	setKey1.push_back(sf::Key::Right);
@@ -109,49 +106,43 @@ Bomberman::Bomberman ()
 	
 }
 
+
 Bomberman::~Bomberman ()
 {
+	delete start_postion_;
+	delete size_window_;
+	vector<Player*>::iterator ite_P;
+	for (ite_P = tablePlayers_.begin(); ite_P != tablePlayers_.end(); ++ite_P) {
+		delete tablePlayers_[ite_P-tablePlayers_.begin()];
+	}
+	list<Bomb*>::iterator ite_B;
+	for (ite_B = listBomb_->begin(); ite_B != listBomb_->end(); ++ite_B) {
+		delete (*ite_B);
+	}
+	delete listBomb_;
 	delete win_;
 	delete background_;
 	delete background_menu_;
+	if (m_ != NULL) delete m_;
 	if (map_ != NULL) delete map_;
-	delete size_window_;
 	delete spriteset_;
 	delete spriteset_menu_;
 	delete current_background_;
 	delete spriteset_fast_;
 	delete spriteset_strong_;
-	delete music_menu_;
-	delete music_game_;
-	delete timer_;
-	delete groBold_;
-	delete victory_;
 }
 
 
 bool Bomberman::start() {
 	// Chargement du fond
 	current_background_->SetImage(*background_menu_);
+	
 	// Création des sprites
 
 	sf::Sprite on, off, small, medium, large, board, 
 		number,peggy,key, keyUp, keyDown, keyLeft, 
-		keyRight, keyBomb, next, choixmap;
-	sf::Shape mask;
-	sf::String map1, map2, map3;
-	
-	map1.SetSize(30);
-	map2.SetSize(30);
-	map3.SetSize(30);
-	
-	map1.SetFont(*groBold_);
-	map2.SetFont(*groBold_);
-	map3.SetFont(*groBold_);
+		keyRight, keyBomb, next, choixmap;	
 		
-	map1.SetPosition(100, 100);
-	map2.SetPosition(100, 185);
-	map3.SetPosition(100, 270);
-
 	on.SetImage(*spriteset_menu_);
 	on.SetSubRect(sf::IntRect(0,380,120,430));
 
@@ -211,65 +202,95 @@ bool Bomberman::start() {
 	next.SetSubRect(sf::IntRect(292, 747, 391, 779));
 	next.SetPosition(350, 102);
 
-
+	// Masque d'affichage 
+	sf::Shape mask;
 	mask = sf::Shape::Rectangle (0,0, size_window_[3].x,size_window_[3].y, sf::Color(0,0,0,200));
+	// Masque pour le changement de nom
+	sf::Shape chname = sf::Shape::Rectangle (50, 300, 460, 330,sf::Color(255,255,255,200),
+							2,sf::Color(255,255,255,120));
+	
+	//Initialisation des maps de départ
+	sf::String map1, map2, map3;
+	
+	map1.SetSize(30);
+	map2.SetSize(30);
+	map3.SetSize(30);
+	
+	map1.SetFont(groBold_);
+	map2.SetFont(groBold_);
+	map3.SetFont(groBold_);
+		
+	map1.SetPosition(100, 100);
+	map2.SetPosition(100, 185);
+	map3.SetPosition(100, 270);
 	
 	// Utilitaire d'évènement.
 	sf::Event event;
 	const sf::Input& Input = win_->GetInput();
 	
-	// MAP
+	// Itérateur sur la liste des noms de maps
 	list<string>::iterator ite_m;
 	
 	
 	// Création des zones cliquables
-	sf::IntRect a_play (80,217,185,300);
-	sf::IntRect a_setting (330, 292, 453, 337);
-	sf::IntRect a_quit (340,342, 450, 373);
-	sf::IntRect a_music (285,87,405,132);
-	sf::IntRect a_sound (285,167,405,212);
-	sf::IntRect a_win (290,242,420,287);
-	sf::IntRect a_back (170,312, 435,342);
-	sf::IntRect a_2p (90,87,437,163);
-	sf::IntRect a_3p (90,164, 437,243);
-	sf::IntRect a_4p (90,244, 437,320);
-	sf::IntRect a_1m (80, 95, 438, 156);
-	sf::IntRect a_2m (80, 167, 438, 244);
-	sf::IntRect a_3m (80, 256, 438, 330);
-	sf::IntRect a_flash (100,130, 200,255);
-	sf::IntRect a_bomber (208,130, 308,255);
-	sf::IntRect a_strong (318,130, 418,255);
-	sf::IntRect a_next (327,90,427,130);
-	sf::IntRect a_up (177,155,227,205);
-	sf::IntRect a_down (177,215,227,265);
-	sf::IntRect a_left (107, 215, 157, 265);
-	sf::IntRect a_right (253, 215, 303, 265);
-	sf::IntRect a_bomb (333, 215, 383, 265);
-	sf::IntRect a_MapEditor(0, 326, 160 , 367);
-	sf::IntRect a_downm(170,334, 256, 369);
-	sf::IntRect a_upm(258,334, 344, 369);
-	
+	sf::IntRect a_play (80,217,185,300);		//Bouton play
+	sf::IntRect a_setting (330, 292, 453, 337);	//Bouton settings
+	sf::IntRect a_quit (340,342, 450, 373);		//Bouton quit
+	sf::IntRect a_music (285,87,405,132);		//Bouton music
+	sf::IntRect a_sound (285,167,405,212);		//Bouton sound
+	sf::IntRect a_win (290,242,420,287);		//Bouton changement taille fenetre
+	sf::IntRect a_back (170,312, 435,342);		//Bouton retour menu principal
+	sf::IntRect a_2p (90,87,437,163);		//Bouton 2 players
+	sf::IntRect a_3p (90,164, 437,243);		//Bouton 3 players
+	sf::IntRect a_4p (90,244, 437,320);		//Bouton 4 players
+	sf::IntRect a_1m (80, 95, 438, 156);		//Bouton 1ere map de la liste
+	sf::IntRect a_2m (80, 167, 438, 244);		//Bouton 2eme map de la liste
+	sf::IntRect a_3m (80, 256, 438, 330);		//Bouton 3eme map de la liste
+	sf::IntRect a_flash (100,130, 200,255);		//Bouton sélection Peggy Flash
+	sf::IntRect a_bomber (208,130, 308,255);	//Bouton sélection Peggy Bomber
+	sf::IntRect a_strong (318,130, 418,255);	//Bouton sélection Peggy Strong
+	sf::IntRect a_next (327,90,427,130);		//Bouton next
+	sf::IntRect a_up (177,155,227,205);		//Bouton changement touche up
+	sf::IntRect a_down (177,215,227,265);		//Bouton changement touche down
+	sf::IntRect a_left (107, 215, 157, 265);	//Bouton changement touche left
+	sf::IntRect a_right (253, 215, 303, 265);	//Bouton changement touche right
+	sf::IntRect a_bomb (333, 215, 383, 265);	//Bouton changement touche bombe
+	sf::IntRect a_MapEditor(0, 326, 160 , 367);	//Bouton mapEditor
+	sf::IntRect a_downm(170,334, 256, 369);		//Fleche descendre liste map
+	sf::IntRect a_upm(258,334, 344, 369);		//Fleche monter liste map 
+	sf::IntRect a_chname(50,300,450,350); 		// Zone de changement de nom
 	
 
-	int nbr_player = 0;
-	int nbr_player_set = 0;
+	int nbr_player = 0;				// Nombre de player à parametrer 
+	int nbr_player_set = 0;				// Nombre de player déjà parametré 
 	
-	char changeKey = 0;
-	bool setting = true; // On a pas commencé à joué.
-	bool modifier = false; // Les settings ne sont pas ouvert.
-	bool choosenumber = false;
-	bool chooseplayer = false; // On choisit le joueur
-	bool choosekey = false ; // On choisit les touches
-	bool already_stop = false;
-	bool choosemap = false;
-	bool mapedit = false;
+	char changeKey = 0;				// Type du changement de touche ('u' = up, ...)
+	bool setting = true; 				// On est encore dans les parametres
+	bool choosemap = false;				// Choix de la map
+	bool modifier = false; 				// Les settings spécifiques ne sont pas ouverts
+	bool choosenumber = false;			// Choix du nombre de joueur
+	bool chooseplayer = false;			// Choix du Peggy
+	bool choosekey = false ; 			// Choix des touches
+	bool already_stop = false;			// La musique a t-elle été déjà arretée 
+	bool mapedit = false;				// Est on dans le mapEditor ?
+	bool changeName = false;			// Est qu'on change le nom du joueur ?
 	int x,y, choosemap_pos = 0, choicemap = 0;
-	string name;
-	sf::String player_Name;
+	
+	string name;					// Nom général du player (Player 1, 2, 3 ou 4)
+	string new_name;				// Nouveau nom du player
+	sf::String player_Name; 			// sf::String correspondant au name
+	player_Name.SetFont(groBold_);			
 	player_Name.SetPosition (310,15);
 	player_Name.SetSize (40);
 	player_Name.SetColor(sf::Color(255,255,255,200));
-	music_menu_->Play();
+	
+	// sf::String correspondant au new_name
+	sf::String player_NewName (" Choose your player name and press enter");
+	player_NewName.SetPosition(50, 300);
+	player_NewName.SetSize(20);
+	player_NewName.SetColor(sf::Color(0,0,0));
+	player_NewName.SetFont(groBold_);
+	music_menu_.Play();
 	while (win_->IsOpened() && setting) { // Tant que la fenêtre de jeu est ouverte
 
 		while (win_-> GetEvent(event)) {
@@ -279,11 +300,11 @@ bool Bomberman::start() {
 					win_-> Close();
 					return false;
 				break;
-				case sf::Event::MouseButtonPressed : // L'utilisateur a cliqué
+				case sf::Event::MouseButtonPressed : // Gestion evenement clic
 					x = event.MouseButton.X;
 					y = event.MouseButton.Y;
 					if (!modifier && !choosenumber && !chooseplayer && !choosekey && !choosemap) {	// On a pas cliqué sur settings	
-						if (a_play.Contains(x,y)) {	// On passe au choix de personnage.
+						if (a_play.Contains(x,y)) {	// On passe au choix de map.
 							choosemap = true;
 							listMap_ = listMapFile();
 							ite_m = listMap_.begin();
@@ -299,7 +320,7 @@ bool Bomberman::start() {
 							win_ -> Close();
 							return false;
 						}
-						else if (a_MapEditor.Contains(x,y)){
+						else if (a_MapEditor.Contains(x,y)){ // On passe au mapEditor
 							mapedit = true;
 						}					
 					}
@@ -311,7 +332,7 @@ bool Bomberman::start() {
 							else if (a_sound.Contains(x,y)){
 								sound_ = !sound_;							
 							}						
-							else if (a_win.Contains(x,y)){
+							else if (a_win.Contains(x,y)){	// changement taille win de jeu
 								size_win_++;
 								if (size_win_ > 2) {
 									size_win_ = 0;
@@ -323,6 +344,7 @@ bool Bomberman::start() {
 						}
 						else {
 							if (choosemap) {
+								// choix de la map
 								ite_m = listMap_.begin();
 								for (int i = 0; i<choosemap_pos; i++) ite_m++;
 								if (a_upm.Contains(x,y) && ite_m != listMap_.begin()) {
@@ -356,7 +378,7 @@ bool Bomberman::start() {
 								}
 								
 							}
-							else if (choosenumber) {
+							else if (choosenumber) { // choix du nombre de player
 								name = "Player "+inttoString(nbr_player_set+1);
 								player_Name.SetText(name);
 								if (a_2p.Contains(x,y)){
@@ -379,8 +401,8 @@ bool Bomberman::start() {
 									}	
 								}						
 							}
-							else if (chooseplayer && (nbr_player_set<nbr_player)) {
-								if (!choosekey) {
+							else if (chooseplayer && (nbr_player_set<nbr_player) && (!changeName)) {
+								if (!choosekey) { // ajout des joueurs en fonction du type
 									if (a_flash.Contains(x,y)){
 										
 										tablePlayers_.push_back(new Fast
@@ -413,6 +435,11 @@ bool Bomberman::start() {
 									changeKey = 0;
 									name = "Player "+inttoString(nbr_player_set+1);
 									player_Name.SetText(name);
+									player_NewName.SetText(" Choose your player name and press enter");
+									player_NewName.SetPosition(50, 300);
+									chname = sf::Shape::Rectangle (50, 300, 460, 330,
+											sf::Color(255,255,255,200),2,
+											sf::Color(255,255,255,120));
 									if (nbr_player_set == nbr_player) {
 										chooseplayer = false;
 										return true;
@@ -432,14 +459,46 @@ bool Bomberman::start() {
 								}
 								else if(a_bomb.Contains(x,y)){
 									changeKey = 'b';
-								}			 
+								}
+								else if(a_chname.Contains(x,y)){
+									changeName = true;
+									player_NewName.SetText("");
+									player_NewName.SetPosition(210, 300);
+									chname = sf::Shape::Rectangle (200, 300, 330, 330,
+											sf::Color(255,255,255,200),
+											2,sf::Color(255,255,255,120));
+									
+								}		 
 							}						
 						}						
 					}
 				break;
+				case sf::Event::TextEntered: 	// Gestion de la modification du nom
+					if (changeName) {
+						if (event.Text.Unicode == 8) { // Unicode back = 8
+							if (!new_name.empty()) {
+								new_name.pop_back();
+								player_NewName.SetText(new_name);
+							}
+						}
+						else if (event.Text.Unicode == 13) { // Unicode return = 13
+							tablePlayers_[nbr_player_set]->setName(new_name);
+							new_name = "";
+							changeName = false;
+														
+						}
+						else {
+							if (new_name.size() < 7) {
+								new_name += event.Text.Unicode;
+								player_NewName.SetText(new_name);
+							}
+						}
+					
+					}
+				break;
 				case sf::Event::KeyPressed : 
-					if (event.Key.Code == sf::Key::Escape) {
-						setting = true;modifier = false ;chooseplayer = false;
+					if (event.Key.Code == sf::Key::Escape) { // retour menu principal
+						setting = true;modifier = false ;chooseplayer = false;choicemap = 0;
 						choosekey = false;choosemap=false;mapedit = false; choosenumber = false;
 						for (int i = 0; i< (int)tablePlayers_.size(); i++) {
 							delete tablePlayers_[i];
@@ -459,7 +518,7 @@ bool Bomberman::start() {
 						case 'd' : 
 							tableKeySet_[nbr_player_set][3] = event.Key.Code;
 							tablePlayers_[nbr_player_set]-> updateKeySet(changeKey, event.Key.Code);
-							changeKey = 0;
+							changeKey = 0;	
 							win_ -> Draw(key);
 						break;
 						case 'l' : 
@@ -506,14 +565,14 @@ bool Bomberman::start() {
 			}
 			if (music_) {
 				if(already_stop) {
-					music_menu_ -> Play();
+					music_menu_. Play();
 					already_stop = false;
 				}
 				on.SetPosition (a_music.Left, a_music.Top);	
 				win_->Draw (on);
 			}
 			else {
-				music_menu_ -> Stop();
+				music_menu_ . Stop();
 				already_stop = true;	
 				off.SetPosition (a_music.Left, a_music.Top);
 				win_->Draw (off);			
@@ -560,11 +619,11 @@ bool Bomberman::start() {
 			}
 			if (mapedit) {
 				m_ = new MapEditor(size_window_[1].x, size_window_[1].y);
-				if(m_-> mapGenerator()) {
-				}
+				m_-> mapGenerator();
 				mapedit = false;
 			}
 			if (choosekey) {
+
 
 				win_->Draw (mask);
 				win_->Draw(key);
@@ -606,7 +665,18 @@ bool Bomberman::start() {
 					break;	
 					default : break;
 				}
+				win_->Draw(chname);
+				win_ -> Draw(player_NewName);
+				if (changeName) {
+					win_ -> Draw(mask);
+					win_->Draw(chname);
+					win_ -> Draw(player_NewName);
+				}
+
+				
+
 			}
+
 			if (choosemap) {
 				win_->Draw(mask);
 				win_->Draw(choixmap);
@@ -627,71 +697,83 @@ return true;
 
 bool Bomberman::run() {
 
-	music_menu_ -> Stop();
+	sf::SoundBuffer bufferVictory, bufferDefeat;
+	bufferVictory.LoadFromFile("data/SonsProjet/victory.wav");
+	bufferDefeat.LoadFromFile("data/SonsProjet/defeat.wav");
+	
+
+		music_menu_.Stop();
 	
 	if (music_) {
-		music_game_ -> Play();
+		music_game_.Play();
 	}
 	// Dimensionnement de la fenêtre
 	win_->Create(sf::VideoMode(size_window_[2].x, size_window_[2].y),"Super BomberPeggy Deluxe");
 	win_->SetSize(size_window_[(int)size_win_].x, size_window_[(int)size_win_].y);
-
+	
+	// Masque d'affichage si pause ou fin de jeu et timer
 	sf::Shape mask = sf::Shape::Rectangle (0,0, size_window_[2].x,size_window_[2].y, sf::Color(0,0,0,200));
 	sf::Shape mask_timer = sf::Shape::Rectangle (23,483, 123,519, sf::Color(0,0,0,150),2,sf::Color(0,0,0,220) );
-	vector<Player*>::iterator ite_P;
-	int id,x,y;
-	bool bombt = false;
-	bool hiroshima = false;
-	bool play = true;
-	paused_ = false;
-
+	
+	// Itérateurs pour nos conteneurs
 	list<Bomb*>::iterator ite_Bomb; 
+	vector<Player*>::iterator ite_P;
+	
+	// Initialisation du background
 	current_background_->SetImage(*background_);
 	current_background_->SetSubRect(sf::IntRect(0,0,size_window_[2].x, size_window_[2].y));
 	
+	// Initialisation des string
 	sf::String str_time, str_victory, str_continue;
 	str_time.SetPosition (30,480);
 	str_time.SetSize (34);
 	str_time.SetColor(sf::Color(255,255,255,200));
-	str_time.SetFont(*groBold_);
+	str_time.SetFont(groBold_);
 	str_victory.SetPosition (200,550);
 	str_victory.SetSize (34);
 	str_victory.SetColor(sf::Color(255,255,255,200));
-	str_victory.SetFont(*groBold_);
+	str_victory.SetFont(groBold_);
 	str_continue.SetPosition(500,650);
 	str_continue.SetSize (26);
 	str_continue.SetColor(sf::Color(255,255,255,200));
-	str_continue.SetFont(*groBold_);
+	str_continue.SetFont(groBold_);
 	str_continue.SetText (" Click anywhere to continue ...");
 	
-	victory_->SetImage(*spriteset_menu_);
-	victory_-> SetSubRect (sf::IntRect (0, 23*TILE_Size, 6*TILE_Size, 28*TILE_Size));
-	victory_-> SetPosition (350, 150);
+	// Image de victoire
+	victory_.SetImage(*spriteset_menu_);
+	victory_.SetSubRect (sf::IntRect (0, 23*TILE_Size, 6*TILE_Size, 28*TILE_Size));
+	victory_.SetPosition (350, 150);
 		
-	//Gestion d'évènements
+	//Gestionnaire d'évènements
 	const sf::Input& Input = win_->GetInput();
 	sf::Event event;
 	
 	// Initialisation zone cliquables
 	sf::IntRect a_music, a_sound, a_quit, a_pause;
-	float a = 1;
-	a_music = sf::IntRect (a*4,a*528,a*54,a*574);
-	a_sound = sf::IntRect (a*58,a*528,a*108,a*574);
-	a_quit = sf::IntRect (a*113,a*528,a*163,a*574);
-	a_pause = sf::IntRect (a*67,a*615, a*115,a*660);
-
+	a_music = sf::IntRect (4,528,54,574);		// Play/Pause music 
+	a_sound = sf::IntRect (58,528,108,574);		// Play/Pause sound
+	a_quit = sf::IntRect (113,528,163,574);		// Quit game
+	a_pause = sf::IntRect (67,615, 115,660);	// Play/Pause game
+	
+	// Affichage des boutons
 	sf::Sprite Cross, Play;
 	Cross.SetImage(*spriteset_);
 	Cross.SetSubRect(sf::IntRect(0, TILE_Size*5, TILE_Size, TILE_Size*6));
 	Play.SetImage(*spriteset_);
 	Play.SetSubRect(sf::IntRect(TILE_Size, TILE_Size*5, TILE_Size*2, TILE_Size*6));
 	Play.SetPosition(57,603);
-	sf::Vector2<float> pointinview;
-
-	timer_->start();
+	
+	sf::Vector2<float> pointinview;			// Coordonnées (x,y) dans la vue 
+	int id,x,y;
+	bool bombt = false;
+	bool hiroshima = false;
+	bool play = true;
+	paused_ = false;
+	bool endmusic = false;
+	timer_.start();
 	while (win_->IsOpened()) { // Tant que la fenêtre de jeu est ouverte
 		
-			if (timer_->getElapsedTime() > GAME_TIME - HIROSHIMA) {
+			if (timer_.getElapsedTime() > GAME_TIME - HIROSHIMA) {
 				hiroshima = true;
 				str_time.SetColor(sf::Color(255,10,10,200));
 			}
@@ -727,10 +809,10 @@ bool Bomberman::run() {
 							else if (a_music.Contains(x,y)) {
 								music_ = !music_;
 								if (music_){
-									music_game_->Play();
+									music_game_.Play();
 								}
 								else {
-									music_game_->Pause();
+									music_game_.Pause();
 								}
 							}
 							else if (a_quit.Contains(x,y)) {
@@ -744,22 +826,22 @@ bool Bomberman::run() {
 							paused_ = !paused_;
 							if (paused_) {
 							// On met les sons de bombes en pause, la musique ainsi que les animations
-								timer_->stop();
+								timer_.stop();
 								if (!listBomb_->empty()) {
 									for (ite_Bomb = listBomb_->begin(); ite_Bomb != listBomb_->end(); ++ite_Bomb) {
 									(*ite_Bomb)->stopsound();
 									}
 								}
-								music_game_->Pause();
+								music_game_.Pause();
 							}
 							else {
-								timer_->start();
+								timer_.start();
 								if (!listBomb_->empty()) {
 									for (ite_Bomb = listBomb_->begin(); ite_Bomb != listBomb_->end(); ++ite_Bomb) {
 									(*ite_Bomb)->playsound();
 									}
 								}
-								music_game_->Play();
+								music_game_.Play();
 							}	
 						}
 					break;
@@ -822,7 +904,7 @@ bool Bomberman::run() {
 
 			if (!listBomb_->empty()) {
 				for (ite_Bomb = listBomb_->begin(); ite_Bomb != listBomb_->end(); ++ite_Bomb) {		
-						bombt = bombt || (*ite_Bomb)->update();
+						bombt = bombt || (*ite_Bomb)->update(sound_);
 						(*ite_Bomb)->display();
 				}
 
@@ -857,9 +939,9 @@ bool Bomberman::run() {
 				}
 			}
 		}
-		if ((timer_->getElapsedTime() >= GAME_TIME) || (tablePlayers_.size() < 2)) {
+		if ((timer_.getElapsedTime() >= GAME_TIME) || (tablePlayers_.size() < 2)) {
 			play = false;
-			timer_->stop();
+			timer_.stop();
 		}
 	 
 	
@@ -870,16 +952,29 @@ bool Bomberman::run() {
 	
 	if (!play) {	// La partie est terminée.
 		win_->Draw(mask);
-		win_->Draw(*victory_);
+		win_->Draw(victory_);
 		if (tablePlayers_.size() == 1) { // Nous avons un vainqueur.
+			if (!endmusic && sound_) {
+				music_game_.SetVolume(5);
+				end_music_ = sf::Sound(bufferVictory, false, 1 ,VOLUME+20);
+				end_music_.Play();
+				endmusic = true;
+			}
 			headvictory_ = tablePlayers_[0]->getHead();
 			headvictory_.SetPosition (485,140);
 			win_->Draw(headvictory_);
 			str_victory.SetText(tablePlayers_[0]->getName()+ ", you have the PEGGY in you !");
+			str_victory.SetColor(sf::Color(10,250,10,200));
 			win_->Draw(str_victory);
 			win_->Draw(str_continue);
 		}
-		else {
+		else {		// Match nul
+			if (!endmusic && sound_) {
+				music_game_.SetVolume(5);
+				end_music_ = sf::Sound(bufferDefeat, false, 1 ,VOLUME+20);
+				end_music_.Play();
+				endmusic = true;
+			}
 			str_victory.SetText("It's a tie, YOU all SUCK ! ");
 			str_victory.SetPosition(330,550);
 			str_victory.SetColor(sf::Color(255,10,10,200));
@@ -914,7 +1009,7 @@ bool Bomberman::isSound() const {
 }
 
 string Bomberman::getStringTimer() {
-	int time = GAME_TIME - timer_->getElapsedTime() ;
+	int time = GAME_TIME - timer_.getElapsedTime() ;
 	int minute = time / 60;
 	int second = time % 60;
 	if (second>9)
@@ -1263,6 +1358,9 @@ void Bomberman::print_stat(string speed, string bomb, string power) {
 	sf::String s(speed); 
 	sf::String b(bomb); 
 	sf::String p(power);
+	s.SetFont(groBold_);
+	b.SetFont(groBold_);
+	p.SetFont(groBold_);
 	s.SetPosition (183,280);
 	s.SetSize (24);
 	s.SetColor(c);
@@ -1289,7 +1387,7 @@ list<string> Bomberman::listMapFile() {
 	
 	list<string> listmap;
 	string current;
-	DIR * rep = opendir("./data/maps");
+	DIR * rep = opendir("./data/maps");	//Repertoire des maps
 	if (rep == NULL) {
 		cerr <<"Impossible d'ouvrir le repertoire map !" << endl;	
 	}

@@ -6,46 +6,40 @@
 using namespace std;
 
 Player :: Player(sf::RenderWindow *win, sf::Vector2<float> pos, sf::Image *spriteset, Map *map,vector<sf::Key::Code> keySet, string name) : 
-win_(win), spriteset_(spriteset), position_(pos), current_(Default),previous_(Default), map_(map), keySet_(keySet) , name_(name)
-{
-	// deplacement_ max = 250		
-	// deplacement_ min = 100	
+win_(win), spriteset_(spriteset), position_(pos), current_(Default),previous_(Default), keySet_(keySet), name_(name),map_(map)
+{	
 	deplacement_ = 100;
 	power_ = 1;
 	bomb_count_ = 1;
 	life_=3;
-	groBold_ = new sf::Font;
-	groBold_ -> LoadFromFile("data/Font/GROBOLD.ttf");
+	id_ = name_.back();
+	groBold_.LoadFromFile("data/Font/GROBOLD.ttf");
 	player_name_.SetText(name_);
-	player_name_.SetFont(*groBold_);
-
+	player_name_.SetFont(groBold_);
+	
 
 	// Initialisation des sprites
 	
 	//Sprite de l'HUD
-	heart_ = new sf::Sprite;
-	heart_->SetImage(*spriteset_);
-	heart_-> SetSubRect (sf::IntRect (0, 4*TILE_Size, TILE_Size, 5*TILE_Size));
 	
-	empty_heart_ = new sf::Sprite;
-	empty_heart_->SetImage(*spriteset_);
-	empty_heart_-> SetSubRect (sf::IntRect (TILE_Size, TILE_Size*4, 2*TILE_Size, 5*TILE_Size));
+	heart_.SetImage(*spriteset_);
+	heart_.SetSubRect (sf::IntRect (0, 4*TILE_Size, TILE_Size, 5*TILE_Size));
 	
-	HUD_ = new sf::Sprite;
-	HUD_->SetImage(*spriteset_);
-	HUD_-> SetSubRect (sf::IntRect (2*TILE_Size, 4*TILE_Size, 5*TILE_Size, 6*TILE_Size));
+	empty_heart_.SetImage(*spriteset_);
+	empty_heart_.SetSubRect (sf::IntRect (TILE_Size, TILE_Size*4, 2*TILE_Size, 5*TILE_Size));
 	
-	head_ = new sf::Sprite;
-	head_->SetImage(*spriteset_);
-	head_-> SetSubRect (sf::IntRect (9*TILE_Size, TILE_Size, 10*TILE_Size,2*TILE_Size));
+	HUD_.SetImage(*spriteset_);
+	HUD_.SetSubRect (sf::IntRect (2*TILE_Size, 4*TILE_Size, 5*TILE_Size, 6*TILE_Size));
+	
+	head_.SetImage(*spriteset_);
+	head_.SetSubRect (sf::IntRect (9*TILE_Size, TILE_Size, 10*TILE_Size,2*TILE_Size));
 	
 
 	// Sprite sans mouvement 	
-	currentsprite_ = new sf::Sprite;
-	currentsprite_->SetImage(*spriteset_);
+	currentsprite_.SetImage(*spriteset_);
 	front_= sf::IntRect(0,TILE_Size,TILE_Size,TILE_Size*2);	
-	currentsprite_->SetSubRect(front_);	
-	currentsprite_->SetPosition(position_.x,position_.y);
+	currentsprite_.SetSubRect(front_);	
+	currentsprite_.SetPosition(position_.x,position_.y);
 	hitBox_= sf::IntRect(position_.x + OFFSET_X_Hitbox ,
 				position_.y + OFFSET_Y_Hitbox, 
 				position_.x + OFFSET_X_Hitbox + WIDTH_Hitbox,
@@ -81,15 +75,16 @@ win_(win), spriteset_(spriteset), position_(pos), current_(Default),previous_(De
 	
 	// Timer de bomber
 	bomb_timer_.Reset();
+	//Timer de déplacement
+	move_clock_.Reset();
+	
+	// Son
+	pigBuffer_.LoadFromFile("data/SonsProjet/pig.wav");
+
+	sound_pig_ =  sf::Sound(pigBuffer_, false, 1 ,VOLUME);
 }
 
 Player :: ~Player(){
-	delete currentsprite_;
-	delete heart_;
-	delete empty_heart_;
-	delete HUD_;
-	delete head_;
-	delete groBold_;
 }
 
 sf::Vector2<float> Player::getPosition() const {
@@ -107,42 +102,45 @@ sf::Vector2<int> Player::getTile() {
 }
 
 
-void Player::display() const {
+void Player::display() {
 
-	currentsprite_->SetPosition(position_.x , position_.y);
-	win_->Draw(*currentsprite_);
+	currentsprite_.SetPosition(position_.x , position_.y);
+	win_->Draw(currentsprite_);
 
 }
 
+	
 void Player::display_HUD(){
 	int cpt = 0;
-	int id = (int)(name_[7] - '0');
+	int id = (int)(id_ - '0');
 	int cornerX = 0;
 	int cornerY = (id-1) * SIZE_Y_Hud;
 	
 	// Affichage planche :
-	HUD_->SetPosition(cornerX, cornerY);
-	win_->Draw(*HUD_);
+	HUD_.SetPosition(cornerX, cornerY);
+	win_->Draw(HUD_);
 	
 	// Affichage personnage
-	head_->SetPosition(cornerX, cornerY);
-	win_->Draw(*head_);
+	head_.SetPosition(cornerX, cornerY);
+	win_->Draw(head_);
 	
 	// Affichage du nom
+	player_name_.SetText(name_);
 	player_name_.SetPosition ((cornerX+TILE_Size-3),cornerY+25);
 	player_name_.SetSize (20);
+	player_name_.SetFont(groBold_);
 	player_name_.SetColor(sf::Color(255,255,255,200));
 	win_->Draw(player_name_);
 	
 	//Affichage des vies
 	for (cpt = 0; cpt < 3; cpt++) {
 		if ((cpt+1) <= life_) {
-			heart_->SetPosition(cornerX + cpt* 40, cornerY + TILE_Size-18);
-			win_->Draw(*heart_);
+			heart_.SetPosition(cornerX + cpt* 40, cornerY + TILE_Size-18);
+			win_->Draw(heart_);
 		}
 		else {
-			empty_heart_->SetPosition(cornerX + cpt* 40, cornerY + TILE_Size-18);
-			win_->Draw(*empty_heart_);
+			empty_heart_.SetPosition(cornerX + cpt* 40, cornerY + TILE_Size-18);
+			win_->Draw(empty_heart_);
 		}
 	}
 }
@@ -177,6 +175,7 @@ bool Player::canMoveR(sf::IntRect hitBox) const {
 	sf::Vector2<float> center = getCenter(hitBox);
 	sf::Vector2<int> tileBomb;
 	list<Bomb*>::iterator ite_Bomb;
+	// Recuperation des deux coordonnées des deux cases à droite
 	tile1x = min(max(((int)(center.x - OFFSET_x)/TILE_Size)+1,0),9);
 	tile2x = tile1x;
 	tile1y = min(max(((int)(center.y -(OFFSET_y+(HEIGHT_Hitbox/2))) / TILE_Size),0),9);
@@ -184,22 +183,21 @@ bool Player::canMoveR(sf::IntRect hitBox) const {
 	// Traitement case
 	if (tile1x < 10){
 		if (tile2x==10) tile2x--;
-		//cout << tile1y <<',' <<tile1x <<','<< tile2y<<','<< tile2x <<endl;
 		char type1 = map_->getTile(tile1x, tile1y);
 		char type2 = map_->getTile(tile2x, tile2y);
-		// Verif Bombe
+		// Verif Bombe : collision 
 		for (ite_Bomb = map_->listBomb_->begin(); ite_Bomb != map_->listBomb_->end(); ++ite_Bomb) {		
 				tileBomb = (*ite_Bomb)->getTile();
 				if ((tileBomb.x == tile1x) && (tileBomb.y== tile1y)) type1 = 'Z';
 				if ((tileBomb.x == tile2x )&& (tileBomb.y== tile2y)) type2 = 'Z';
 		}
-		
+		// Si on peut franchir la case -> go
 		if (((type1 == 'V')||(type1 == 'A')||(type1 == 'B')||(type1 == 'C')) && 
 			((type2 == 'V')||(type2 == 'A')||(type2 == 'B')||(type2 == 'C'))) {												
 			return true;
 			
 		}
-		else {
+		else {	// si collision rocher ou foin
 			t1 = hitBox.Intersects(sf::IntRect(OFFSET_x+TILE_Size*tile1x,
 							OFFSET_y+TILE_Size*tile1y,
 							OFFSET_x+TILE_Size*((tile1x)+1),
@@ -217,7 +215,7 @@ bool Player::canMoveR(sf::IntRect hitBox) const {
 	
 }
 
-
+// meme principe que canMoveR
 bool Player::canMoveL(sf::IntRect hitBox) const {	
 	
 	int tile1x, tile1y, tile2x, tile2y;
@@ -265,6 +263,7 @@ bool Player::canMoveL(sf::IntRect hitBox) const {
 	
 }
 
+// meme principe que canMoveR
 bool Player::canMoveU(sf::IntRect hitBox) const {	
 	
 	int tile1x, tile1y, tile2x, tile2y;
@@ -311,6 +310,7 @@ bool Player::canMoveU(sf::IntRect hitBox) const {
 	
 }
 
+// meme principe que canMoveR
 bool Player::canMoveD(sf::IntRect hitBox) const {	
 	
 	int tile1x, tile1y, tile2x, tile2y;
@@ -368,24 +368,27 @@ void Player::moveRight() {
 	sf::IntRect hitBox = hitBox_;
 	hitBox.Offset(deplacement,0);
 	if (!isOutOfBound(hitBox)) {
+		// verif qu'on reste dans le cadre de la map
 		if (canMoveR(hitBox)) {
+			// peut on aller a droite ?
 			position_.x = position_.x + deplacement;
 			hitBox_.Offset(deplacement,0);
 			current_ = Right;
-			if (previous_ == Right) {
+			if (previous_ == Right && move_clock_.GetElapsedTime() > (0.3-((deplacement_/4)/SPEEDMAX))) {
 			// On incrémente l'itérateur de sprite droite
 				if (ite_R != Rsprite_.end()) {
-					currentsprite_->SetSubRect(Rsprite_[(ite_R)-(Rsprite_.begin())]);
+					currentsprite_.SetSubRect(Rsprite_[(ite_R)-(Rsprite_.begin())]);
 					ite_R++;
 				}
 				else {
 					ite_R = Rsprite_.begin();
-					currentsprite_->SetSubRect(Rsprite_[(ite_R)-(Rsprite_.begin())]);
+					currentsprite_.SetSubRect(Rsprite_[(ite_R)-(Rsprite_.begin())]);
 				}
+				move_clock_.Reset();
 		
 			}
-			else {
-				currentsprite_->SetSubRect(Rsprite_[(ite_R)-(Rsprite_.begin())]);
+			else if (previous_ != Right) {	// affichage en fonction de la direction précédente
+				currentsprite_.SetSubRect(Rsprite_[(ite_R)-(Rsprite_.begin())]);
 				switch (previous_) {
 		
 					case Left :
@@ -404,14 +407,16 @@ void Player::moveRight() {
 		}
 		else {
 			previous_ = Default;
-			currentsprite_->SetSubRect(front_);
+			currentsprite_.SetSubRect(front_);
 		}
 	}
 	else {
 		previous_ = Default;
-		currentsprite_->SetSubRect(front_);
+		currentsprite_.SetSubRect(front_);
 	}
 }
+
+// meme principe que moveRight()
 void Player::moveLeft() {
 	int deplacement = min(deplacement_*win_->GetFrameTime(),(WIDTH_Hitbox/2.0f)-1);
 	sf::IntRect hitBox = hitBox_;
@@ -422,20 +427,20 @@ void Player::moveLeft() {
 			current_ = Left;
 			position_.x = position_.x - deplacement;
 			hitBox_.Offset(-deplacement,0);
-			if (previous_ == Left) {
+			if (previous_ == Left && move_clock_.GetElapsedTime() > (0.3-((deplacement_/4)/SPEEDMAX))) {
 			// On incrémente l'itérateur de sprite droite
 				if (ite_L != Lsprite_.end()) {
-					currentsprite_->SetSubRect(Lsprite_[(ite_L)-(Lsprite_.begin())]);
+					currentsprite_.SetSubRect(Lsprite_[(ite_L)-(Lsprite_.begin())]);
 					ite_L++;
 				}
 				else {
 					ite_L = Lsprite_.begin();
-					currentsprite_->SetSubRect(Lsprite_[(ite_L)-(Lsprite_.begin())]);
+					currentsprite_.SetSubRect(Lsprite_[(ite_L)-(Lsprite_.begin())]);
 				}
-		
+			move_clock_.Reset();
 			}
-			else {
-				currentsprite_->SetSubRect(Lsprite_[(ite_L)-(Lsprite_.begin())]);
+			else if (previous_ != Left){
+				currentsprite_.SetSubRect(Lsprite_[(ite_L)-(Lsprite_.begin())]);
 				switch (previous_) {
 		
 					case Right :
@@ -454,15 +459,16 @@ void Player::moveLeft() {
 		}
 		else {
 			previous_ = Default;
-			currentsprite_->SetSubRect(front_);
+			currentsprite_.SetSubRect(front_);
 		}
 	}
 	else {
 		previous_ = Default;
-		currentsprite_->SetSubRect(front_);
+		currentsprite_.SetSubRect(front_);
 	}
 }
 
+// meme principe que moveRight()
 void Player::moveUp() {
 	int deplacement = min(deplacement_*win_->GetFrameTime(),(HEIGHT_Hitbox/2.0f)-1);
 	sf::IntRect hitBox = hitBox_;
@@ -473,20 +479,20 @@ void Player::moveUp() {
 			current_ = Up;
 			position_.y = position_.y - deplacement;
 			hitBox_.Offset(0,-deplacement);
-			if (previous_ == Up) {
+			if (previous_ == Up && move_clock_.GetElapsedTime() > (0.3-((deplacement_/4)/SPEEDMAX))) {
 			// On incrémente l'itérateur de sprite droite
 				if (ite_U != Usprite_.end()) {
-					currentsprite_->SetSubRect(Usprite_[(ite_U)-(Usprite_.begin())]);
+					currentsprite_.SetSubRect(Usprite_[(ite_U)-(Usprite_.begin())]);
 					ite_U++;
 				}
 				else {
 					ite_U = Usprite_.begin();
-					currentsprite_->SetSubRect(Usprite_[(ite_U)-(Usprite_.begin())]);
+					currentsprite_.SetSubRect(Usprite_[(ite_U)-(Usprite_.begin())]);
 				}
-		
+			move_clock_.Reset();
 			}
-			else {
-				currentsprite_->SetSubRect(Usprite_[(ite_U)-(Usprite_.begin())]);
+			else if (previous_ != Up){
+				currentsprite_.SetSubRect(Usprite_[(ite_U)-(Usprite_.begin())]);
 				switch (previous_) {
 		
 					case Right :
@@ -505,15 +511,16 @@ void Player::moveUp() {
 		}
 		else {
 			previous_ = Default;
-			currentsprite_->SetSubRect(front_);
+			currentsprite_.SetSubRect(front_);
 		}
 	}
 	else {
 		previous_ = Default;
-		currentsprite_->SetSubRect(front_);
+		currentsprite_.SetSubRect(front_);
 	}
 }
 
+// meme principe que moveRight()
 void Player::moveDown() {
 	int deplacement = min(deplacement_*win_->GetFrameTime(),(HEIGHT_Hitbox/2.0f)-1);
 	sf::IntRect hitBox = hitBox_;
@@ -524,20 +531,20 @@ void Player::moveDown() {
 		current_ = Down;
 		position_.y = position_.y + deplacement;
 		hitBox_.Offset(0,deplacement);
-		if (previous_ == Down) {
+		if (previous_ == Down && move_clock_.GetElapsedTime() > (0.3-((deplacement_/4)/SPEEDMAX))) {
 		// On incrémente l'itérateur de sprite droite
 			if (ite_D != Dsprite_.end()) {
-				currentsprite_->SetSubRect(Dsprite_[(ite_D)-(Dsprite_.begin())]);
+				currentsprite_.SetSubRect(Dsprite_[(ite_D)-(Dsprite_.begin())]);
 				ite_D++;
 			}
 			else {
 				ite_D = Dsprite_.begin();
-				currentsprite_->SetSubRect(Dsprite_[(ite_D)-(Dsprite_.begin())]);
+				currentsprite_.SetSubRect(Dsprite_[(ite_D)-(Dsprite_.begin())]);
 			}
-		
+		move_clock_.Reset();
 		}
-		else {
-			currentsprite_->SetSubRect(Dsprite_[(ite_D)-(Dsprite_.begin())]);
+		else if (previous_ != Down){
+			currentsprite_.SetSubRect(Dsprite_[(ite_D)-(Dsprite_.begin())]);
 			switch (previous_) {
 		
 				case Right :
@@ -556,12 +563,12 @@ void Player::moveDown() {
 		}
 		else {
 			previous_ = Default;
-			currentsprite_->SetSubRect(front_);
+			currentsprite_.SetSubRect(front_);
 		}
 	}
 	else {
 		previous_ = Default;
-		currentsprite_->SetSubRect(front_);
+		currentsprite_.SetSubRect(front_);
 	}
 }
 
@@ -583,7 +590,7 @@ void Player::setDefault() {
 			default : break;
 		}
 	previous_ = Default;
-	currentsprite_->SetSubRect(front_);
+	currentsprite_.SetSubRect(front_);
 	
 }
 
@@ -620,7 +627,8 @@ int Player::getLife() const {
 int Player::getBombCount() const {	
 	return bomb_count_;
 }
-void Player::kill() {
+void Player::kill(bool sound) {
+	if (sound) sound_pig_.Play();
 	life_--;
 }
 
@@ -715,9 +723,13 @@ void Player::resetBombTime() {
 }
 
 sf::Sprite Player::getHead() const {
-	return *head_;
+	return head_;
 }
 
 string Player::getName() const {
 	return name_;
+}
+
+void Player::setName(string name) {
+	name_ = name;
 }

@@ -8,8 +8,9 @@ using namespace std;
 MapEditor::MapEditor(int size_x, int size_y)  
 {
 	
+	// Initialisation des sprites.
 	spriteseteditor_ = new sf::Image;
-	spriteseteditor_ ->LoadFromFile("data/mapeditorsprite.png");
+	spriteseteditor_->LoadFromFile("data/mapeditorsprite.png");
 	
 	spriteset_ = new sf::Image;
 	spriteset_ ->LoadFromFile("data/spritesheetb.png");
@@ -82,6 +83,7 @@ MapEditor::~MapEditor() {
 	delete win_editor;
 	delete background_editor_;
 	delete spriteset_;
+	delete spriteseteditor_;
 	delete background_;
 	delete FoinMobile_;
 	delete PierreMobile_;
@@ -102,16 +104,22 @@ MapEditor::~MapEditor() {
 
 bool MapEditor::mapGenerator(){
 	
-	
+	// Initialisation du mask efficace
 	sf::Shape mask = sf::Shape::Rectangle (0,0, 1024,768, sf::Color(0,0,0,200));
+	
+	// Création de l'extention du fichier. 
 	sf::String str(" .txt");
 	str.SetSize(26);
 	str.SetFont(*groBold_);
+	
+	//Nom de la map
+	string mapName;
+	
+	// Gestion d'évènement.
 	sf::Event event;
 	const sf::Input& Input = win_editor->GetInput();
 	
-	string mapName;
-	
+	// Positionnement des objets 
 	Pierre_->SetPosition(35,50);
 	Foin_->SetPosition(35,150);
 	erase-> SetPosition(35,250);
@@ -120,10 +128,11 @@ bool MapEditor::mapGenerator(){
 	enterstring_ -> SetPosition(400, 300);
 	str.SetPosition(430,350);
 
-	sf::IntRect buttonPierre (35,50,35+TILE_Size,50+TILE_Size);
-	sf::IntRect buttonFoin (35,150,35+TILE_Size,150+TILE_Size);
-	sf::IntRect buttonErase(35, 250, 35+TILE_Size, 250+TILE_Size);
-	sf::IntRect buttonSave(35, 500, 35+TILE_Size, 500+TILE_Size);
+	// Créations des zones cliquables
+	sf::IntRect buttonPierre (35,50,35+TILE_Size,50+TILE_Size);		// Bouton Pierre
+	sf::IntRect buttonFoin (35,150,35+TILE_Size,150+TILE_Size);		// Bouton Foin
+	sf::IntRect buttonErase(35, 250, 35+TILE_Size, 250+TILE_Size);		// Bouton Erase
+	sf::IntRect buttonSave(35, 500, 35+TILE_Size, 500+TILE_Size);		// Bouton Save
 	
 		
 	bool addFoin = false;
@@ -141,31 +150,31 @@ bool MapEditor::mapGenerator(){
 					win_editor-> Close();
 					return false;
 				break;
-				case sf::Event::MouseButtonPressed : 
+				case sf::Event::MouseButtonPressed : // Récupération des évènements de clic
 					pointinview =  win_editor->ConvertCoords(event.MouseButton.X, event.MouseButton.Y);
 					x = pointinview.x;
 					y = pointinview.y;
 
-					if (buttonFoin.Contains(x,y)) {
+					if (buttonFoin.Contains(x,y)) { // Clic sur foin
 						addFoin = true;
 						addPierre = false;
 						tileErase = false;
 					}
-					else if (buttonPierre.Contains(x,y)) {
+					else if (buttonPierre.Contains(x,y)) {// Clic sur pierre
 						addPierre = true;
 						addFoin = false;
 						tileErase = false;
 					}
-					else if (buttonErase.Contains(x,y)) {
+					else if (buttonErase.Contains(x,y)) {// Clic sur suppression
 						addPierre = false;
 						addFoin = false;
 						tileErase = true;
 					}
-					else if (buttonSave.Contains(x,y)) {
+					else if (buttonSave.Contains(x,y)) {// Clic sur sauvegarder
 						saved = true;
 					}
 				break; 	
-				case sf::Event::MouseButtonReleased :
+				case sf::Event::MouseButtonReleased : // Placement d'un nouvel objet
 					pointinview =  win_editor->ConvertCoords(event.MouseButton.X, event.MouseButton.Y);
 					x = pointinview.x;
 					y = pointinview.y;
@@ -184,7 +193,7 @@ bool MapEditor::mapGenerator(){
 					addPierre = false;
 					tileErase = false;
 				break;
-				case sf::Event::TextEntered: 
+				case sf::Event::TextEntered: // Choix du nom de map
 					if (saved) {
 						
 						if (event.Text.Unicode == 8) { // Unicode back = 8
@@ -213,6 +222,10 @@ bool MapEditor::mapGenerator(){
 							mapName = "";
 							str.SetText( mapName + ".txt");
 						}
+					}
+					else {
+						win_editor -> Close();
+						return true;
 					}
 				break;	
 				default : break;
@@ -255,7 +268,7 @@ bool MapEditor::mapGenerator(){
 }
 
 
-void MapEditor::write(char type, int x, int y) {
+void MapEditor::write(char type, int x, int y) { // Ecriture dans le tableau à deux dimensions
 	if ((x == 0 && y== 0) ||  (x == 0 && y== 9) || (x == 9 && y== 0) || (x == 9 && y== 9)) { // On écrit pas sur un spawn
 		cout << "Spawn position : you can't place it here ! "<< endl;
 	}
@@ -265,7 +278,7 @@ void MapEditor::write(char type, int x, int y) {
 }
 
 
-void MapEditor::display() const
+void MapEditor::display() const  // Affichage courant
 {
 	for(int j = 0; j<MAP_Height; j++) {	
 		for (int i=0; i<MAP_Width; i++){
@@ -293,7 +306,7 @@ void MapEditor::display() const
 }
 
 
-void MapEditor::save(string mapName) {
+void MapEditor::save(string mapName) { // Sauvegarde et codage du tableau[][] dans un fichier.
 
 	string new_map = "data/maps/" + mapName + ".txt";
 	ofstream new_file(new_map); 
@@ -302,8 +315,8 @@ void MapEditor::save(string mapName) {
 		cerr << "Erreur création fichier" << endl;
 	}
 	else {
-		for(int j = 0; j < 9 ; j++)  {
-		 	for(int i = 0; i < 9 ; i++) {
+		for(int j = 0; j <= 9 ; j++)  {
+		 	for(int i = 0; i <= 9 ; i++) {
 		    		new_file << map_[i][j];
 		    	}
 		new_file << "\n";

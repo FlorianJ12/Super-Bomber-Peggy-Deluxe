@@ -23,32 +23,44 @@ class Bomb;
 class Map
 {
 public :
-	
+	// Constructeur
 	Map(sf::RenderWindow *win, sf::Image *spriteset,list<Bomb*> *listBomb, string map);
+	// Destructeur
 	~Map();
-
+	
+	// Accesseurs
 	char getTile(int x, int y) const;
-	void setTile(int x, int y, char type) ;
 	char getRandTile() ;
+	
+	// Mutateur
+	void setTile(int x, int y, char type) ;
+	
+	//Affichage
 	void display() const;
 
 
 private :
-	
-	int cpt_bonus_;
+	// Fenetre 
 	sf::RenderWindow *win_;
-
 	
+	// Attribut d'affichage
 	sf::Image *spriteset_;
-	vector<string>::iterator ite_File;
-	char **map_;
-	char *bonus_;
 	sf::Sprite* Foin; 
 	sf::Sprite* Pierre;
 	sf::Sprite* Acceleration;
 	sf::Sprite* Bombb;
 	sf::Sprite* Colateral;
+	
+	// Gestion de la map
+	char **map_;
+	char *bonus_;
+	int cpt_bonus_;
+	
+	// Iterateur
+	vector<string>::iterator ite_File;
+	
 public :
+	// liste des bombes sur la map
 	list<Bomb*> *listBomb_;
 	
 	

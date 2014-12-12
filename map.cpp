@@ -79,7 +79,6 @@ Map::~Map()
 	for (int i = 0; i<MAP_Width; i++) delete [] map_[i];
 	delete [] map_;
 	delete []bonus_;
-	delete listBomb_;
 }
 
 char Map::getTile(int x, int y) const

@@ -1,7 +1,7 @@
 CC = g++
-CFLAGS := -std=c++11 -DSFML_STATIC -Wall -Wfatal-errors -c
+CFLAGS := -std=c++11 -Wall -Wfatal-errors -c
 LDFLAGS := -lsfml-audio -lsfml-graphics -lsfml-window -lsfml-system
-BIN = bomberman
+BIN = SuperBomberPeggyDeluxe
 OBJ = bomberman.o map.o player.o strong.o fast.o bomber.o bomb.o timer.o mapEditor.o main.o
 
 all: .depend $(BIN)
